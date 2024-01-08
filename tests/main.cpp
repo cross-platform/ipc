@@ -31,6 +31,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <gtest/gtest.h>
 
+#include <future>
 #include <thread>
 
 static const char* c_serverSocket = "server.sock";
@@ -74,14 +75,17 @@ TEST( Client, SameProcess )
 
 TEST( Simple, SeparateProcess )
 {
+    std::promise<void> ready;
     std::thread(
-        []
+        [&ready]
         {
             Ipc::Server server( c_serverSocket );
+            ready.set_value();
             ASSERT_TRUE( server.Listen( RecvCallback ) );
             ASSERT_TRUE( server.Listen( RecvCallback ) );
         } )
         .detach();
+    ready.get_future().wait();
 
     EXPECT_EXIT(
         {
