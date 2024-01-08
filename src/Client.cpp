@@ -86,7 +86,7 @@ public:
 #endif
                 {
                     result.clear();
-                    std::cerr << "recv failed (error: " << errorCode << ")";
+                    std::cerr << "recv failed (error: " << errorCode << ")" << std::endl;
                 }
             }
         } while ( recvResult > 0 );
@@ -115,7 +115,7 @@ Client::Client( const std::filesystem::path& socketPath )
     WSADATA wsd;
     if ( WSAStartup( WINSOCK_VERSION, &wsd ) != 0 )
     {
-        std::cerr << "WSAStartup failed";
+        std::cerr << "WSAStartup failed" << std::endl;
         return;
     }
 #endif
@@ -169,7 +169,7 @@ Message Client::Send( const Message& header, const Message& message )
     if ( connect( clientSocket, reinterpret_cast<const sockaddr*>( &p->socketAddr ), sizeof( p->socketAddr ) ) ==
          SOCKET_ERROR )
     {
-        std::cerr << "connect failed (error: " << lastError() << ")";
+        std::cerr << "connect failed (error: " << lastError() << ")" << std::endl;
         closesocket( clientSocket );
         return Message( "connect failed", true );
     }
@@ -177,7 +177,7 @@ Message Client::Send( const Message& header, const Message& message )
     // Send header data
     if ( !p->Send( clientSocket, header ) )
     {
-        std::cerr << "send header failed (error: " << lastError() << ")";
+        std::cerr << "send header failed (error: " << lastError() << ")" << std::endl;
         closesocket( clientSocket );
         return Message( "send header failed", true );
     }
@@ -186,7 +186,7 @@ Message Client::Send( const Message& header, const Message& message )
     auto recvBytes = p->Receive( clientSocket );
     if ( recvBytes.empty() || recvBytes[0] != 1 )
     {
-        std::cerr << "receive ack failed (error: " << lastError() << ")";
+        std::cerr << "receive ack failed (error: " << lastError() << ")" << std::endl;
         closesocket( clientSocket );
         return Message( "receive ack failed", true );
     }
@@ -194,7 +194,7 @@ Message Client::Send( const Message& header, const Message& message )
     // Send message data
     if ( !p->Send( clientSocket, message ) )
     {
-        std::cerr << "send message failed (error: " << lastError() << ")";
+        std::cerr << "send message failed (error: " << lastError() << ")" << std::endl;
         closesocket( clientSocket );
         return Message( "send message failed", true );
     }
