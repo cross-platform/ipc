@@ -48,7 +48,7 @@ Ipc::Message RecvCallback( const Ipc::Message& recvHeader, const Ipc::Message& r
     return std::string( "Unix Domain Sockets!" );
 }
 
-TEST( Client, Simple )
+TEST( Client, SameProcess )
 {
     Ipc::Server server( c_serverSocket );
     auto listenThread = std::thread(
@@ -70,6 +70,42 @@ TEST( Client, Simple )
     ASSERT_EQ( response2.AsString(), "Unix Domain Sockets!" );
 
     listenThread.join();
+}
+
+TEST( Simple, SeparateProcess )
+{
+    std::thread(
+        []
+        {
+            Ipc::Server server( c_serverSocket );
+            ASSERT_TRUE( server.Listen( RecvCallback ) );
+            ASSERT_TRUE( server.Listen( RecvCallback ) );
+        } )
+        .detach();
+
+    EXPECT_EXIT(
+        {
+            Ipc::Client client( c_serverSocket );
+
+            auto response = client.Send( std::string( "bin" ), std::vector<unsigned char>{ 0 } );
+            ASSERT_FALSE( response.IsError() );
+            ASSERT_EQ( response.AsByteVect(), std::vector<unsigned char>{ 1 } );
+
+            exit( 0 );
+        },
+        testing::ExitedWithCode( 0 ), "" );
+
+    EXPECT_EXIT(
+        {
+            Ipc::Client client( c_serverSocket );
+
+            auto response = client.Send( std::vector<unsigned char>{ 0 }, std::string( "Hello?" ) );
+            ASSERT_FALSE( response.IsError() );
+            ASSERT_EQ( response.AsString(), "Unix Domain Sockets!" );
+
+            exit( 0 );
+        },
+        testing::ExitedWithCode( 0 ), "" );
 }
 
 TEST( Server, StopListening )
