@@ -1,0 +1,10 @@
+# Meson Wraps
+subprojects/googletest-release-*
+subprojects/packagecache
+
+# Misc
+.DS_Store
+*.user
+
+# VSCode
+.vscode/settings.json

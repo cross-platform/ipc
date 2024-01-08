@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "IpcTests",
+            "preLaunchTask": "Build",
+            "program": "${workspaceFolder}/builddir/tests/IpcTests",
+            "cwd": "${workspaceFolder}/builddir",
+            "request": "launch",
+            "type": "cppvsdbg",
+            "osx": {
+                "type": "lldb"
+            }
+        }
+    ]
+}
