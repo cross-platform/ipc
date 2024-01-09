@@ -31,7 +31,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <Common.h>
 #include <Message.h>
 
-#include <assert.h>
 #include <iostream>
 
 using namespace Ipc;

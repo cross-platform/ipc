@@ -30,7 +30,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <Common.h>
 
-#include <assert.h>
 #include <iostream>
 #include <mutex>
 
@@ -120,7 +119,11 @@ Client::Client( const std::filesystem::path& socketPath )
     }
 #endif
 
-    assert( p->socketPath.length() <= sizeof( sockaddr_un::sun_path ) );
+    if ( p->socketPath.length() > sizeof( sockaddr_un::sun_path ) )
+    {
+        std::cerr << "socket path too long: " << socketPath << std::endl;
+        return;
+    }
 
     memset( &p->socketAddr, 0, sizeof( p->socketAddr ) );
     p->socketAddr.sun_family = AF_UNIX;
