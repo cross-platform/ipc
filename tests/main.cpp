@@ -138,7 +138,7 @@ TEST( Ipc, PathTooLong )
         {
             callbackCalled = true;
             EXPECT_TRUE( header.IsError() );
-            EXPECT_EQ( header.AsString(), "" );
+            EXPECT_TRUE( header.AsString().empty() );
             EXPECT_TRUE( message.IsError() );
             EXPECT_EQ( message.AsString(), std::string( "socket path too long: " ) + longPath );
             return Ipc::Message( "" );

@@ -167,7 +167,7 @@ public:
         auto recvHeaderBytes = Receive( clientSocket );
         if ( recvHeaderBytes.empty() )
         {
-            if ( lastError() != EINVAL )
+            if ( lastError() != 0 && lastError() != EINVAL )
             {
                 callback( Message( "", true ),
                           Message( "header recv() failed (error: " + std::to_string( lastError() ) + ")", true ) );
