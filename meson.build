@@ -13,6 +13,26 @@ else
     add_project_arguments(['-D_CRT_SECURE_NO_WARNINGS'], language: 'cpp')
 endif
 
+# Add code coverage
+
+opencppcoverage = find_program('opencppcoverage', required: false)
+
+opencppcoverage_args = [
+    '--sources', meson.project_name(),
+    '--excluded_sources', 'subprojects',
+    '--excluded_sources', 'tests'
+]
+
+if opencppcoverage.found()
+    run_target('codecoverage',
+        command: [
+            opencppcoverage,
+            '--input_coverage', 'IpcTests.cov',
+            '--export_type', 'html:coverage'
+        ]
+    )
+endif
+
 # Add formatting
 
 format_first = []

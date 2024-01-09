@@ -17,4 +17,16 @@ ipc_tests = executable(
     dependencies: [gtest_dep, gmock_dep, ipc_dep]
 )
 
-test('IpcTests', ipc_tests)
+# Add code coverage
+
+if opencppcoverage.found()
+    test('IpcTests', opencppcoverage,
+        args: [
+            opencppcoverage_args,
+            '--export_type', 'binary:IpcTests.cov',
+            ipc_tests
+        ]
+    )
+else
+    test('IpcTests', ipc_tests)
+endif
