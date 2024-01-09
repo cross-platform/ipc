@@ -26,10 +26,10 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ******************************************************************************/
 
-#include <Server.h>
+#include <IpcServer.h>
 
-#include <Common.h>
-#include <Message.h>
+#include <IpcCommon.h>
+#include <IpcMessage.h>
 
 #include <iostream>
 

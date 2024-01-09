@@ -69,9 +69,9 @@ endif
 # Configure ipc_lib
 
 ipc_src = [
-    'src/Client.cpp',
-    'src/Message.cpp',
-    'src/Server.cpp'
+    'src/IpcClient.cpp',
+    'src/IpcMessage.cpp',
+    'src/IpcServer.cpp'
 ]
 
 ipc_inc = include_directories(
