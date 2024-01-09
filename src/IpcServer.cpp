@@ -31,8 +31,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <IpcCommon.h>
 #include <IpcMessage.h>
 
-#include <iostream>
-
 using namespace Ipc;
 
 namespace Ipc::Private
@@ -51,14 +49,14 @@ public:
         WSADATA wsd;
         if ( WSAStartup( WINSOCK_VERSION, &wsd ) != 0 )
         {
-            std::cerr << "WSAStartup failed" << std::endl;
+            initError = "WSAStartup() failed";
             return;
         }
 #endif
 
         if ( socketPath.length() > sizeof( sockaddr_un::sun_path ) )
         {
-            std::cerr << "socket path too long: " << socketPath << std::endl;
+            initError = "socket path too long: " + socketPath;
             return;
         }
 
@@ -66,7 +64,7 @@ public:
         serverSocket = socket( AF_UNIX, SOCK_STREAM, 0 );
         if ( serverSocket == INVALID_SOCKET )
         {
-            std::cerr << "socket failed (error: " << lastError() << ")" << std::endl;
+            initError = "socket() failed (error: " + std::to_string( lastError() ) + ")";
             return;
         }
 
@@ -93,7 +91,7 @@ public:
         if ( bind( serverSocket, reinterpret_cast<const sockaddr*>( &socketAddr ), sizeof( socketAddr ) ) ==
              SOCKET_ERROR )
         {
-            std::cerr << "bind failed (error: " << lastError() << ")" << std::endl;
+            initError = "bind() failed (error: " + std::to_string( lastError() ) + ")";
             closesocket( serverSocket );
             serverSocket = INVALID_SOCKET;
             return;
@@ -102,13 +100,11 @@ public:
         // Listen to start accepting connections
         if ( listen( serverSocket, SOMAXCONN ) == SOCKET_ERROR )
         {
-            std::cerr << "listen failed (error: " << lastError() << ")" << std::endl;
+            initError = "listen() failed (error: " + std::to_string( lastError() ) + ")";
             closesocket( serverSocket );
             serverSocket = INVALID_SOCKET;
             return;
         }
-
-        std::cout << "Accepting connections" << std::endl;
     }
 
     ~ServerImpl()
@@ -128,7 +124,7 @@ public:
     {
         if ( serverSocket == INVALID_SOCKET )
         {
-            std::cerr << "Server socket is invalid" << std::endl;
+            callback( Message( "", true ), Message( initError, true ) );
             return false;
         }
 
@@ -143,13 +139,16 @@ public:
 
         if ( select( (int)serverSocket + 1, &fd, nullptr, nullptr, &timeout ) <= 0 )
         {
+            callback( Message( "", true ),
+                      Message( "select() failed (error: " + std::to_string( lastError() ) + ")", true ) );
             return false;
         }
 
         SOCKET clientSocket = accept( serverSocket, NULL, NULL );
         if ( clientSocket == INVALID_SOCKET )
         {
-            std::cerr << "accept failed (error: " << lastError() << ")" << std::endl;
+            callback( Message( "", true ),
+                      Message( "accept() failed (error: " + std::to_string( lastError() ) + ")", true ) );
             return false;
         }
 
@@ -170,7 +169,8 @@ public:
         {
             if ( lastError() != EINVAL )
             {
-                std::cerr << "recieve header failed (error: " << lastError() << ")" << std::endl;
+                callback( Message( "", true ),
+                          Message( "header recv() failed (error: " + std::to_string( lastError() ) + ")", true ) );
             }
             closesocket( clientSocket );
             return false;
@@ -179,7 +179,8 @@ public:
         // Send ack
         if ( !Send( clientSocket, std::vector<unsigned char>{ 1 } ) )
         {
-            std::cerr << "send ack failed (error: " << lastError() << ")" << std::endl;
+            callback( Message( "", true ),
+                      Message( "ack send() failed (error: " + std::to_string( lastError() ) + ")", true ) );
             closesocket( clientSocket );
             return false;
         }
@@ -188,7 +189,8 @@ public:
         auto recvMessageBytes = Receive( clientSocket );
         if ( recvMessageBytes.empty() )
         {
-            std::cerr << "recieve message failed (error: " << lastError() << ")" << std::endl;
+            callback( Message( "", true ),
+                      Message( "message recv() failed (error: " + std::to_string( lastError() ) + ")", true ) );
             closesocket( clientSocket );
             return false;
         }
@@ -197,7 +199,8 @@ public:
         auto sendMessage = callback( recvHeaderBytes, recvMessageBytes );
         if ( !Send( clientSocket, sendMessage ) )
         {
-            std::cerr << "send response failed (error: " << lastError() << ")" << std::endl;
+            callback( Message( "", true ),
+                      Message( "response send() failed (error: " + std::to_string( lastError() ) + ")", true ) );
             closesocket( clientSocket );
             return false;
         }
@@ -211,14 +214,12 @@ public:
         SOCKET clientSocket = socket( AF_UNIX, SOCK_STREAM, PF_UNSPEC );
         if ( clientSocket == INVALID_SOCKET )
         {
-            std::cerr << "socket failed (error: " << lastError() << ")" << std::endl;
             return false;
         }
 
         if ( connect( clientSocket, reinterpret_cast<const sockaddr*>( &socketAddr ), sizeof( socketAddr ) ) ==
              SOCKET_ERROR )
         {
-            std::cerr << "connect failed (error: " << lastError() << ")" << std::endl;
             closesocket( clientSocket );
             return false;
         }
@@ -266,7 +267,6 @@ public:
 #endif
                 {
                     result.clear();
-                    std::cerr << "recv failed (error: " << errCode << ")" << std::endl;
                 }
             }
         } while ( recvResult > 0 );
@@ -279,6 +279,7 @@ public:
         return result;
     }
 
+    std::string initError;
     SOCKET serverSocket = INVALID_SOCKET;
     std::string socketPath = "";
     sockaddr_un socketAddr;

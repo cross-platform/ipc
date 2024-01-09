@@ -30,7 +30,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <IpcCommon.h>
 
-#include <iostream>
 #include <mutex>
 
 using namespace Ipc;
@@ -85,7 +84,6 @@ public:
 #endif
                 {
                     result.clear();
-                    std::cerr << "recv failed (error: " << errorCode << ")" << std::endl;
                 }
             }
         } while ( recvResult > 0 );
@@ -98,6 +96,7 @@ public:
         return result;
     }
 
+    std::string initError;
     std::string socketPath = "";
     sockaddr_un socketAddr;
     unsigned char recvBytes[c_recvBufferSize] = {};
@@ -114,14 +113,14 @@ Client::Client( const std::filesystem::path& socketPath )
     WSADATA wsd;
     if ( WSAStartup( WINSOCK_VERSION, &wsd ) != 0 )
     {
-        std::cerr << "WSAStartup failed" << std::endl;
+        p->initError = "WSAStartup() failed";
         return;
     }
 #endif
 
     if ( p->socketPath.length() > sizeof( sockaddr_un::sun_path ) )
     {
-        std::cerr << "socket path too long: " << socketPath << std::endl;
+        p->initError = "socket path too long: " + p->socketPath;
         return;
     }
 
@@ -140,6 +139,11 @@ Client::~Client()
 
 Message Client::Send( const Message& header, const Message& message )
 {
+    if ( !p->initError.empty() )
+    {
+        return Message( p->initError, true );
+    }
+
     std::lock_guard<std::mutex> lock( p->sendMutex );
 
     if ( header.Size() == 0 )
@@ -154,7 +158,7 @@ Message Client::Send( const Message& header, const Message& message )
     SOCKET clientSocket = socket( AF_UNIX, SOCK_STREAM, PF_UNSPEC );
     if ( clientSocket == INVALID_SOCKET )
     {
-        return Message( "socket failed", true );
+        return Message( "socket() failed (error: " + std::to_string( lastError() ) + ")", true );
     }
 
 #ifdef _WIN32
@@ -172,34 +176,30 @@ Message Client::Send( const Message& header, const Message& message )
     if ( connect( clientSocket, reinterpret_cast<const sockaddr*>( &p->socketAddr ), sizeof( p->socketAddr ) ) ==
          SOCKET_ERROR )
     {
-        std::cerr << "connect failed (error: " << lastError() << ")" << std::endl;
         closesocket( clientSocket );
-        return Message( "connect failed", true );
+        return Message( "connect() failed (error: " + std::to_string( lastError() ) + ")", true );
     }
 
     // Send header data
     if ( !p->Send( clientSocket, header ) )
     {
-        std::cerr << "send header failed (error: " << lastError() << ")" << std::endl;
         closesocket( clientSocket );
-        return Message( "send header failed", true );
+        return Message( "header send() failed (error: " + std::to_string( lastError() ) + ")", true );
     }
 
     // Receive ack
     auto recvBytes = p->Receive( clientSocket );
     if ( recvBytes.empty() || recvBytes[0] != 1 )
     {
-        std::cerr << "receive ack failed (error: " << lastError() << ")" << std::endl;
         closesocket( clientSocket );
-        return Message( "receive ack failed", true );
+        return Message( "ack recv() failed (error: " + std::to_string( lastError() ) + ")", true );
     }
 
     // Send message data
     if ( !p->Send( clientSocket, message ) )
     {
-        std::cerr << "send message failed (error: " << lastError() << ")" << std::endl;
         closesocket( clientSocket );
-        return Message( "send message failed", true );
+        return Message( "message send() failed (error: " + std::to_string( lastError() ) + ")", true );
     }
 
     // Receive some data

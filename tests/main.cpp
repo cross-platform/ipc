@@ -49,7 +49,7 @@ Ipc::Message RecvCallback( const Ipc::Message& recvHeader, const Ipc::Message& r
     return std::string( "Unix Domain Sockets!" );
 }
 
-TEST( Client, SameProcess )
+TEST( Ipc, SameProcess )
 {
     Ipc::Server server( c_serverSocket );
     auto listenThread = std::thread(
@@ -73,7 +73,7 @@ TEST( Client, SameProcess )
     listenThread.join();
 }
 
-TEST( Simple, SeparateProcess )
+TEST( Ipc, SeparateProcess )
 {
     std::promise<void> ready;
     std::thread(
@@ -112,7 +112,7 @@ TEST( Simple, SeparateProcess )
         testing::ExitedWithCode( 0 ), "" );
 }
 
-TEST( Server, StopListening )
+TEST( Ipc, StopListening )
 {
     Ipc::Server server( c_serverSocket );
     auto listenThread = std::thread( [&server] { ASSERT_FALSE( server.Listen( RecvCallback ) ); } );
@@ -120,6 +120,36 @@ TEST( Server, StopListening )
     server.StopListening();
 
     listenThread.join();
+}
+
+TEST( Ipc, PathTooLong )
+{
+    auto longPath =
+        "really/really/really/really/really/really/really/really/really/really/really/really/really/really/really/"
+        "really/really/really/really/really/really/really/really/really/really/really/really/really/really/long/path";
+
+    // Server
+    Ipc::Server server( longPath );
+
+    bool callbackCalled = false;
+
+    ASSERT_FALSE( server.Listen(
+        [&longPath, &callbackCalled]( const Ipc::Message& header, const Ipc::Message& message ) -> Ipc::Message
+        {
+            callbackCalled = true;
+            EXPECT_TRUE( header.IsError() );
+            EXPECT_EQ( header.AsString(), "" );
+            EXPECT_TRUE( message.IsError() );
+            EXPECT_EQ( message.AsString(), std::string( "socket path too long: " ) + longPath );
+            return Ipc::Message( "" );
+        } ) );
+
+    ASSERT_TRUE( callbackCalled );
+
+    // Client
+    Ipc::Client client( longPath );
+    auto response = client.Send( Ipc::Message( "" ), Ipc::Message( "" ) );
+    ASSERT_EQ( response.AsString(), std::string( "socket path too long: " ) + longPath );
 }
 
 int main( int argc, char** argv )
