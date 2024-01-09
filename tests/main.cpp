@@ -40,9 +40,19 @@ Ipc::Message RecvCallback( const Ipc::Message& recvHeader, const Ipc::Message& r
 {
     if ( recvMessage.AsString() != "Hello?" )
     {
+        EXPECT_FALSE( recvHeader.IsError() );
         EXPECT_EQ( recvHeader.AsString(), "bin" );
-        EXPECT_EQ( recvMessage.AsByteVect(), std::vector<unsigned char>{ 0 } );
+        EXPECT_EQ( recvHeader.Size(), 3 );
+        for ( size_t i = 0; i < recvHeader.Size(); ++i )
+        {
+            EXPECT_EQ( recvHeader.AsByteVect()[i], recvHeader.AsRaw()[i] );
+        }
+
+        EXPECT_FALSE( recvMessage.IsError() );
         EXPECT_EQ( recvMessage.AsRaw()[0], 0 );
+        EXPECT_EQ( recvMessage.AsString()[0], '\0' );
+        EXPECT_EQ( recvMessage.AsByteVect(), std::vector<unsigned char>{ 0 } );
+
         return std::vector<unsigned char>{ 1 };
     }
 
@@ -148,8 +158,42 @@ TEST( Ipc, PathTooLong )
 
     // Client
     Ipc::Client client( longPath );
-    auto response = client.Send( Ipc::Message( "" ), Ipc::Message( "" ) );
+    auto response = client.Send( Ipc::Message( "header" ), Ipc::Message( "message" ) );
+    ASSERT_TRUE( response.IsError() );
     ASSERT_EQ( response.AsString(), std::string( "socket path too long: " ) + longPath );
+}
+
+TEST( Ipc, EmptyMessage )
+{
+    Ipc::Client client( c_serverSocket );
+
+    auto response1 = client.Send( Ipc::Message( "" ), Ipc::Message( "message" ) );
+    ASSERT_TRUE( response1.IsError() );
+    ASSERT_EQ( response1.AsString(), "header can not be empty" );
+
+    auto response2 = client.Send( Ipc::Message( "header" ), Ipc::Message( "" ) );
+    ASSERT_TRUE( response2.IsError() );
+    ASSERT_EQ( response2.AsString(), "message can not be empty" );
+}
+
+TEST( Ipc, MessageConversion )
+{
+    std::string messageStr = "test message 1 2 3";
+    Ipc::Message message( reinterpret_cast<unsigned char*>( &messageStr[0] ), messageStr.size() );
+
+    ASSERT_FALSE( message.IsError() );
+
+    ASSERT_EQ( message.Size(), messageStr.size() );
+    ASSERT_EQ( message.AsString().size(), messageStr.size() );
+    ASSERT_EQ( message.AsByteVect().size(), messageStr.size() );
+
+    ASSERT_EQ( message.AsString(), messageStr );
+
+    for ( size_t i = 0; i < messageStr.size(); ++i )
+    {
+        ASSERT_EQ( message.AsByteVect()[i], (unsigned char)messageStr[i] );
+        ASSERT_EQ( message.AsRaw()[i], (unsigned char)messageStr[i] );
+    }
 }
 
 int main( int argc, char** argv )

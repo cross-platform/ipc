@@ -43,7 +43,6 @@ class MessageImpl;
 class Message final
 {
 public:
-    // Ownership of message is transferred to Message and will be freed on destruction
     Message( unsigned char* message, size_t length );
 
     // cppcheck-suppress noExplicitConstructor

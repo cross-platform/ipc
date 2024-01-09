@@ -38,7 +38,6 @@ class MessageImpl
 public:
     MessageImpl( unsigned char* message, size_t length )
         : size( length )
-        , ownRaw( true )
         , asRaw( message )
     {
     }
@@ -61,14 +60,6 @@ public:
         {
             asString = message;
             asRaw = reinterpret_cast<unsigned char*>( &asString[0] );
-        }
-    }
-
-    ~MessageImpl()
-    {
-        if ( ownRaw )
-        {
-            free( asRaw );
         }
     }
 
@@ -95,7 +86,6 @@ public:
     bool isError = false;
 
     size_t size = 0;
-    bool ownRaw = false;
     unsigned char* asRaw = nullptr;
 
     std::vector<unsigned char> asByteVect;
