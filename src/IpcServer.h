@@ -52,10 +52,12 @@ public:
     Server& operator=( const Server& ) = delete;
 
     // Listen() blocks for just one client message, run it in a loop in it's own thread
-    bool Listen( const std::function<Message( const Message& header, const Message& message )>& callback );
+    // (Use IsError() on the return Message to determine if the call was successful)
+    Message Listen( const std::function<Message( const Message& header, const Message& message )>& callback );
 
     // StopListening() should be called from a different thread to Listen() to unblock it
-    bool StopListening();
+    // (Use IsError() on the return Message to determine if the call was successful)
+    Message StopListening();
 
 private:
     std::unique_ptr<Private::ServerImpl> p;

@@ -120,12 +120,11 @@ public:
 #endif
     }
 
-    bool Listen( const std::function<Message( const Message& header, const Message& message )>& callback )
+    Message Listen( const std::function<Message( const Message& header, const Message& message )>& callback )
     {
         if ( serverSocket == INVALID_SOCKET )
         {
-            callback( Message( "", true ), Message( initError, true ) );
-            return false;
+            return Message( initError, true );
         }
 
         // Accept a connection
@@ -139,17 +138,13 @@ public:
 
         if ( select( (int)serverSocket + 1, &fd, nullptr, nullptr, &timeout ) <= 0 )
         {
-            callback( Message( "", true ),
-                      Message( "select() failed (error: " + std::to_string( lastError() ) + ")", true ) );
-            return false;
+            return Message( "select() failed (error: " + std::to_string( lastError() ) + ")", true );
         }
 
         SOCKET clientSocket = accept( serverSocket, NULL, NULL );
         if ( clientSocket == INVALID_SOCKET )
         {
-            callback( Message( "", true ),
-                      Message( "accept() failed (error: " + std::to_string( lastError() ) + ")", true ) );
-            return false;
+            return Message( "accept() failed (error: " + std::to_string( lastError() ) + ")", true );
         }
 
 #ifdef _WIN32
@@ -167,65 +162,60 @@ public:
         auto recvHeaderBytes = Receive( clientSocket );
         if ( recvHeaderBytes.empty() )
         {
-            if ( lastError() != 0 && lastError() != EINVAL )
+            if ( lastError() == 0 || lastError() == EINVAL )
             {
-                callback( Message( "", true ),
-                          Message( "header recv() failed (error: " + std::to_string( lastError() ) + ")", true ) );
+                closesocket( clientSocket );
+                return Message( "" );
             }
+
             closesocket( clientSocket );
-            return false;
+            return Message( "header recv() failed (error: " + std::to_string( lastError() ) + ")", true );
         }
 
         // Send ack
         if ( !Send( clientSocket, std::vector<unsigned char>{ 1 } ) )
         {
-            callback( Message( "", true ),
-                      Message( "ack send() failed (error: " + std::to_string( lastError() ) + ")", true ) );
             closesocket( clientSocket );
-            return false;
+            return Message( "ack send() failed (error: " + std::to_string( lastError() ) + ")", true );
         }
 
         // Receive message data
         auto recvMessageBytes = Receive( clientSocket );
         if ( recvMessageBytes.empty() )
         {
-            callback( Message( "", true ),
-                      Message( "message recv() failed (error: " + std::to_string( lastError() ) + ")", true ) );
             closesocket( clientSocket );
-            return false;
+            return Message( "message recv() failed (error: " + std::to_string( lastError() ) + ")", true );
         }
 
         // Send some data
         auto sendMessage = callback( recvHeaderBytes, recvMessageBytes );
         if ( !Send( clientSocket, sendMessage ) )
         {
-            callback( Message( "", true ),
-                      Message( "response send() failed (error: " + std::to_string( lastError() ) + ")", true ) );
             closesocket( clientSocket );
-            return false;
+            return Message( "response send() failed (error: " + std::to_string( lastError() ) + ")", true );
         }
 
         closesocket( clientSocket );
-        return true;
+        return Message( "" );
     }
 
-    bool StopListening() const
+    Message StopListening() const
     {
         SOCKET clientSocket = socket( AF_UNIX, SOCK_STREAM, PF_UNSPEC );
         if ( clientSocket == INVALID_SOCKET )
         {
-            return false;
+            return Message( "socket() failed (error: " + std::to_string( lastError() ) + ")", true );
         }
 
         if ( connect( clientSocket, reinterpret_cast<const sockaddr*>( &socketAddr ), sizeof( socketAddr ) ) ==
              SOCKET_ERROR )
         {
             closesocket( clientSocket );
-            return false;
+            return Message( "connect() failed (error: " + std::to_string( lastError() ) + ")", true );
         }
 
         closesocket( clientSocket );
-        return true;
+        return Message( "" );
     }
 
     static bool Send( SOCKET clientSocket, const Message& message )
@@ -295,12 +285,12 @@ Server::Server( const std::filesystem::path& socketPath )
 
 Server::~Server() = default;
 
-bool Server::Listen( const std::function<Message( const Message& header, const Message& message )>& callback )
+Message Server::Listen( const std::function<Message( const Message& header, const Message& message )>& callback )
 {
     return p->Listen( callback );
 }
 
-bool Server::StopListening()
+Message Server::StopListening()
 {
     return p->StopListening();
 }

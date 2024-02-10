@@ -65,8 +65,8 @@ TEST( Ipc, SameProcess )
     auto listenThread = std::thread(
         [&server]
         {
-            ASSERT_TRUE( server.Listen( RecvCallback ) );
-            ASSERT_TRUE( server.Listen( RecvCallback ) );
+            ASSERT_FALSE( server.Listen( RecvCallback ).IsError() );
+            ASSERT_FALSE( server.Listen( RecvCallback ).IsError() );
         } );
 
     Ipc::Client client( c_serverSocket );
@@ -91,8 +91,8 @@ TEST( Ipc, SeparateProcess )
         {
             Ipc::Server server( c_serverSocket );
             ready.set_value();
-            ASSERT_TRUE( server.Listen( RecvCallback ) );
-            ASSERT_TRUE( server.Listen( RecvCallback ) );
+            ASSERT_FALSE( server.Listen( RecvCallback ).IsError() );
+            ASSERT_FALSE( server.Listen( RecvCallback ).IsError() );
         } )
         .detach();
     ready.get_future().wait();
@@ -125,7 +125,7 @@ TEST( Ipc, SeparateProcess )
 TEST( Ipc, StopListening )
 {
     Ipc::Server server( c_serverSocket );
-    auto listenThread = std::thread( [&server] { ASSERT_FALSE( server.Listen( RecvCallback ) ); } );
+    auto listenThread = std::thread( [&server] { ASSERT_FALSE( server.Listen( RecvCallback ).IsError() ); } );
 
     server.StopListening();
 
@@ -141,20 +141,9 @@ TEST( Ipc, PathTooLong )
     // Server
     Ipc::Server server( longPath );
 
-    bool callbackCalled = false;
-
-    ASSERT_FALSE( server.Listen(
-        [&longPath, &callbackCalled]( const Ipc::Message& header, const Ipc::Message& message ) -> Ipc::Message
-        {
-            callbackCalled = true;
-            EXPECT_TRUE( header.IsError() );
-            EXPECT_TRUE( header.AsString().empty() );
-            EXPECT_TRUE( message.IsError() );
-            EXPECT_EQ( message.AsString(), std::string( "socket path too long: " ) + longPath );
-            return Ipc::Message( "" );
-        } ) );
-
-    ASSERT_TRUE( callbackCalled );
+    auto result = server.Listen( RecvCallback );
+    ASSERT_TRUE( result.IsError() );
+    ASSERT_EQ( result.AsString(), std::string( "socket path too long: " ) + longPath );
 
     // Client
     Ipc::Client client( longPath );
