@@ -132,11 +132,7 @@ public:
         FD_ZERO( &fd );
         FD_SET( serverSocket, &fd );
 
-        struct timeval timeout;
-        timeout.tv_sec = 2;
-        timeout.tv_usec = 0;
-
-        if ( select( (int)serverSocket + 1, &fd, nullptr, nullptr, &timeout ) <= 0 )
+        if ( select( (int)serverSocket + 1, &fd, nullptr, nullptr, nullptr ) <= 0 )
         {
             return Message( "select() failed (error: " + std::to_string( lastError() ) + ")", true );
         }
@@ -149,11 +145,16 @@ public:
 
 #ifdef _WIN32
         int timeoutMs = 2000;
+
         setsockopt( clientSocket, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char*>( &timeoutMs ),
                     sizeof( timeoutMs ) );
         setsockopt( clientSocket, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>( &timeoutMs ),
                     sizeof( timeoutMs ) );
 #else
+        struct timeval timeout;
+        timeout.tv_sec = 2;
+        timeout.tv_usec = 0;
+
         setsockopt( clientSocket, SOL_SOCKET, SO_SNDTIMEO, static_cast<const void*>( &timeout ), sizeof( timeout ) );
         setsockopt( clientSocket, SOL_SOCKET, SO_RCVTIMEO, static_cast<const void*>( &timeout ), sizeof( timeout ) );
 #endif
